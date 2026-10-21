@@ -1,0 +1,4 @@
+# No local deployment files, credentials, customizations, or data enter the image.
+**
+!Dockerfile
+!.dockerignore

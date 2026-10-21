@@ -1,0 +1,110 @@
+name: Build, test, and publish image
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: image-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    env:
+      # Avoid storing build-record artifacts; the image is published to GHCR.
+      DOCKER_BUILD_RECORD_UPLOAD: "false"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Check repository and helper scripts
+        run: |
+          bash -n scripts/resolve-base.sh scripts/smoke-test.sh
+          python3 -m unittest discover -s tests -v
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+
+      - name: Resolve patched PHP base and image names
+        id: config
+        shell: bash
+        run: |
+          base_image=$(sed -n 's/^ARG PHP_BASE_IMAGE=//p' Dockerfile)
+          if [[ ! "$base_image" =~ ^php:([0-9]+\.[0-9]+\.[0-9]+)-apache-trixie$ ]]; then
+            echo "Unexpected PHP base reference: $base_image" >&2
+            exit 1
+          fi
+          php_version=${BASH_REMATCH[1]}
+          espo_version=$(sed -n 's/^ENV ESPOCRM_VERSION=//p' Dockerfile)
+          resolved_base=$(bash scripts/resolve-base.sh "$base_image")
+          image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          version="$espo_version-php$php_version"
+          {
+            echo "base=$resolved_base"
+            echo "php_version=$php_version"
+            echo "image=$image"
+            echo "version=$version"
+            echo "build_version=$version-build.$GITHUB_RUN_ID.$GITHUB_RUN_ATTEMPT"
+          } >> "$GITHUB_OUTPUT"
+          printf 'Resolved PHP base: `%s`\n' "$resolved_base" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Build locally for testing
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+        with:
+          context: .
+          platforms: linux/amd64
+          build-args: PHP_BASE_IMAGE=${{ steps.config.outputs.base }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.base.name=${{ steps.config.outputs.base }}
+          tags: espocrm-php-patched:test
+          pull: true
+          load: true
+          push: false
+          provenance: false
+          sbom: false
+
+      - name: Test CLI, extensions, scripts, and Apache PHP
+        env:
+          EXPECTED_PHP_VERSION: ${{ steps.config.outputs.php_version }}
+        run: bash scripts/smoke-test.sh espocrm-php-patched:test "$EXPECTED_PHP_VERSION"
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Push the exact locally tested image, without a second build.
+      - name: Publish tested image
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        env:
+          IMAGE: ${{ steps.config.outputs.image }}
+          VERSION: ${{ steps.config.outputs.version }}
+          BUILD_VERSION: ${{ steps.config.outputs.build_version }}
+        run: |
+          docker tag espocrm-php-patched:test "$IMAGE:$BUILD_VERSION"
+          docker push "$IMAGE:$BUILD_VERSION"
+          docker tag espocrm-php-patched:test "$IMAGE:$VERSION"
+          docker push "$IMAGE:$VERSION"
+          digest_ref=$(docker image inspect --format '{{index .RepoDigests 0}}' "$IMAGE:$VERSION")
+          {
+            printf '\nPublished: `%s:%s`\n' "$IMAGE" "$VERSION"
+            printf '\nBuild-specific tag: `%s:%s`\n' "$IMAGE" "$BUILD_VERSION"
+            printf '\nProduction digest reference: `%s`\n' "$digest_ref"
+          } >> "$GITHUB_STEP_SUMMARY"
