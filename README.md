@@ -1,22 +1,20 @@
 # EspoCRM with patched PHP
 
 Unofficial rebuild of the official EspoCRM Docker image, keeping **EspoCRM
-9.3.10** while updating its PHP runtime to **8.4.27**. Not affiliated with or
+9.3.8** while updating its PHP runtime to **8.4.27**. Not affiliated with or
 endorsed by EspoCRM.
 
 ```text
-ghcr.io/martin-pfister/espocrm-php-patched:9.3.10-php8.4.27
+ghcr.io/martin-pfister/espocrm-php-patched:9.3.8-php8.4.27
 ```
 
 Only **linux/amd64** is built and tested. The image is published after a
 successful GitHub Actions build and smoke test; this README is not a claim
 that an image has already been published.
 
-> This patches PHP while bundling the original EspoCRM 9.3.10 release. It does
-> **not** add application fixes beyond that release, guarantee that the entire
-> image is vulnerability-free, or replace a longer-term application upgrade
-> plan. Deploying it over an existing 9.3.8 installation also triggers an
-> **EspoCRM application upgrade**, not just a PHP runtime update.
+> This updates PHP, not EspoCRM. It does **not** fix vulnerabilities in
+> EspoCRM 9.3.8 itself, guarantee that the entire image is vulnerability-free,
+> or replace a longer-term application upgrade plan.
 
 ## Why rebuild?
 
@@ -36,10 +34,10 @@ into the old image and **not** an independent build of the EspoCRM application.
 
 | Input | Selection |
 | --- | --- |
-| Upstream Docker recipe and startup scripts | [`espocrm/espocrm-docker@d7f12c42946110f6aae21e8333f018da4e829220`](https://github.com/espocrm/espocrm-docker/tree/d7f12c42946110f6aae21e8333f018da4e829220/latest/apache) (9.3.10) |
+| Upstream Docker recipe and startup scripts | [`espocrm/espocrm-docker@a6d862f43d825289dd219088d5187931ca7493d6`](https://github.com/espocrm/espocrm-docker/tree/a6d862f43d825289dd219088d5187931ca7493d6/latest/apache) (9.3.8) |
 | PHP base | `php:8.4.27-apache-trixie` |
-| EspoCRM archive | [`EspoCRM-9.3.10.zip`](https://www.espocrm.com/downloads/EspoCRM-9.3.10.zip) |
-| Archive SHA-256 | `eea5b47ecb7e12011f862f449c3b196b6dd40ad8b80c0e6c610b7b6bb6f31b5d` |
+| EspoCRM archive | [`EspoCRM-9.3.8.zip`](https://www.espocrm.com/downloads/EspoCRM-9.3.8.zip) |
+| Archive SHA-256 | `e02583050c5f5a7e98cd12f9431870fc606581a62c10c5e4ef6dc091e882c18d` |
 | PECL extensions | ev **1.2.3**, Redis **6.3.0** |
 | ZeroMQ extension source | [`616b6c64ffd3866ed038615494306dd464ab53fc`](https://github.com/zeromq/php-zmq/tree/616b6c64ffd3866ed038615494306dd464ab53fc) (as upstream) |
 
@@ -48,7 +46,7 @@ The Dockerfile:
 1. Fetches the historical Docker repository at the exact commit above.
 2. Uses the patched PHP Apache/Trixie base and rebuilds the original set of
    additional PHP extensions against it.
-3. Downloads the original EspoCRM 9.3.10 archive and checks its SHA-256 before
+3. Downloads the original EspoCRM 9.3.8 archive and checks its SHA-256 before
    extraction. Application version and checksum are not build arguments.
 4. Copies the **generated** `latest/apache/docker-*.sh` scripts unchanged
    from that commit, including their embedded configuration helpers.
@@ -75,22 +73,16 @@ and test each build; use its final image digest for an exact deployment.
 The image bundles EspoCRM in `/usr/src/espocrm`; the historical entrypoint
 initializes or upgrades an installation in `/var/www/html`.
 
-For an existing **9.3.10** installation mounted at `/var/www/html`, the matching
+For an existing **9.3.8** installation mounted at `/var/www/html`, the matching
 target version should not trigger an application upgrade. The PHP runtime is
 outside that mount, so replacing the container updates PHP while retaining
 application data, uploads and customizations.
 
-For an existing **9.3.8** installation, the web container's upstream entrypoint
-attempts the normal application upgrade to **9.3.10**, modifying the shared
-application volume and potentially the database. Test that upgrade on isolated
-copies first. Keep the daemon and websocket containers stopped until the web
-container has completed the upgrade and the installed version is verified.
-
 Upstream's startup logic is unchanged: **there is no additional version
-assertion or startup guard.** A newer installation is not automatically
-downgraded. This image does not enforce the version of files supplied by an
-external volume. Upstream may start the previous application version after an
-upgrade failure, so a running container alone does **not** prove success.
+assertion or startup guard.** An older installation may trigger upstream's
+normal upgrade path; a newer installation is not automatically downgraded.
+This image is intended for an installation already confirmed to be 9.3.8.
+It does not enforce the version of files supplied by an external volume.
 
 Keep the existing `/var/www/html` mount layout. Do not combine this runtime
 update with the volume-layout changes used by newer EspoCRM releases.
@@ -111,8 +103,8 @@ update with the volume-layout changes used by newer EspoCRM releases.
 
 Each publication has two tags:
 
-- `9.3.10-php8.4.27`: a convenience tag, updated by subsequent successful builds.
-- `9.3.10-php8.4.27-build.<run-id>.<attempt>`: a build-specific tag.
+- `9.3.8-php8.4.27`: a convenience tag, updated by subsequent successful builds.
+- `9.3.8-php8.4.27-build.<run-id>.<attempt>`: a build-specific tag.
 
 The workflow loads the image locally, tests it, then pushes **that same image
 without rebuilding**. It checks the architecture, PHP CLI version, required
@@ -159,10 +151,8 @@ Before deploying:
 
 - Back up the **database and complete application volume consistently**.
 - Record the current image digest and Compose configuration for rollback.
-- Record the installed application version in its About dialog or inspect
-  only its version value, not its secret-bearing configuration. An existing
-  9.3.10 installation needs only the runtime update; upgrading from 9.3.8 also
-  needs the application-upgrade procedure below:
+- Confirm the application is 9.3.8 in its About dialog or inspect only its
+  version value, not its secret-bearing configuration:
 
   ```sh
   docker exec espocrm php -r '$c = require "/var/www/html/application/Espo/Resources/defaults/config.php"; echo $c["version"] ?? "not found", PHP_EOL;'
@@ -172,9 +162,6 @@ Before deploying:
   Disable outbound email, scheduled jobs and external integration side effects
   in staging. **Never share production data mounts with a test deployment.**
 - Keep public access disabled until post-deployment checks pass.
-- Review the 9.3.9/9.3.10 application changes and test installed extensions and
-  customizations. In particular, review any core-file LDAP override against
-  9.3.10: its bind mount hides the updated upstream file.
 
 Change the `image` in **all three** EspoCRM services, without changing their
 mounts, environment, labels or entrypoints:
@@ -182,11 +169,11 @@ mounts, environment, labels or entrypoints:
 ```yaml
 services:
   espocrm:
-    image: ghcr.io/martin-pfister/espocrm-php-patched:9.3.10-php8.4.27
+    image: ghcr.io/martin-pfister/espocrm-php-patched:9.3.8-php8.4.27
   espocrm-daemon:
-    image: ghcr.io/martin-pfister/espocrm-php-patched:9.3.10-php8.4.27
+    image: ghcr.io/martin-pfister/espocrm-php-patched:9.3.8-php8.4.27
   espocrm-websocket:
-    image: ghcr.io/martin-pfister/espocrm-php-patched:9.3.10-php8.4.27
+    image: ghcr.io/martin-pfister/espocrm-php-patched:9.3.8-php8.4.27
 ```
 
 This snippet shows **only the image changes**, not a complete Compose file.
@@ -199,20 +186,7 @@ With the database running, during the maintenance window:
 ```sh
 docker compose pull espocrm espocrm-daemon espocrm-websocket
 docker compose stop espocrm espocrm-daemon espocrm-websocket
-docker compose up -d --no-deps espocrm
-docker compose logs --follow espocrm
-```
-
-Wait for the web container's installation/upgrade processing to finish, check
-the logs for errors and verify **EspoCRM 9.3.10** using the version command
-above or the About dialog before starting workers. Ctrl-C exits the log
-follower without stopping the container. The upstream upgrader downloads
-application upgrade packages, so allow outbound access during the upgrade.
-
-Only after verifying success:
-
-```sh
-docker compose up -d --no-deps espocrm-daemon espocrm-websocket
+docker compose up -d --no-deps espocrm espocrm-daemon espocrm-websocket
 ```
 
 Retain any existing LDAP file bind mount on the web service. An override
@@ -228,19 +202,17 @@ docker compose exec -T espocrm-websocket php -v
 docker compose logs --tail=100 espocrm espocrm-daemon espocrm-websocket
 ```
 
-Confirm PHP 8.4.27 in all three services, EspoCRM 9.3.10, successful LDAP login,
+Confirm PHP 8.4.27 in all three services, EspoCRM 9.3.8, successful LDAP login,
 uploads, scheduled jobs and websocket functionality. The CI HTTP smoke test
 checks Apache's module as well as CLI; `php -v` alone checks only CLI.
 
 ### Rollback
 
-Keep public access disabled and stop all three EspoCRM services. If the
-application upgrade from 9.3.8 ran or partially ran, restore the matching
-**pre-upgrade database and application-volume backups** before recreating
-containers with their previous image references. Changing the image alone
-does **not** downgrade the application stored on the volume or its database.
-Returning to the old image also returns to vulnerable PHP: **do not re-expose
-it publicly as a security workaround**.
+Keep public access disabled, stop all three EspoCRM services, restore their
+previous image references and recreate them. If application or database
+state changed during testing/deployment, restore a matching backup pair as
+needed. Returning to the old image also returns to vulnerable PHP: **do not
+re-expose it publicly as a security workaround**.
 
 ## Maintenance
 
@@ -254,7 +226,7 @@ it publicly as a security workaround**.
   is fixed for that run, but later builds may resolve a refreshed base.
 - Test every build in staging and pin its published digest. This repository
   performs no automatic production deployments or scheduled rebuilds.
-- Plan further EspoCRM application upgrades separately; keeping 9.3.10 indefinitely
+- Plan an EspoCRM application upgrade separately; keeping 9.3.8 indefinitely
   is not a complete security maintenance strategy.
 
 ## Upstream, source and licensing
@@ -266,9 +238,9 @@ legal-notice requirements. Other components retain their own licenses.
 
 Sources and build instructions are available here and at:
 
-- [Historical Docker build context](https://github.com/espocrm/espocrm-docker/tree/d7f12c42946110f6aae21e8333f018da4e829220/latest/apache)
-- [EspoCRM 9.3.10 source](https://github.com/espocrm/espocrm/tree/9.3.10)
-- [Original EspoCRM 9.3.10 distribution archive](https://www.espocrm.com/downloads/EspoCRM-9.3.10.zip)
+- [Historical Docker build context](https://github.com/espocrm/espocrm-docker/tree/a6d862f43d825289dd219088d5187931ca7493d6/latest/apache)
+- [EspoCRM 9.3.8 source](https://github.com/espocrm/espocrm/tree/9.3.8)
+- [Original EspoCRM 9.3.8 distribution archive](https://www.espocrm.com/downloads/EspoCRM-9.3.8.zip)
 - [Docker Official PHP image sources](https://github.com/docker-library/php)
 - [PHP 8.4.27 source](https://www.php.net/distributions/php-8.4.27.tar.xz)
 

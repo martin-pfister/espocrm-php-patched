@@ -1,18 +1,18 @@
 # syntax=docker/dockerfile:1
-# Adapted from EspoCRM's 9.3.10 Apache Dockerfile, 2026-10-21.
-# Upstream: espocrm/espocrm-docker@d7f12c42946110f6aae21e8333f018da4e829220
+# Adapted from EspoCRM's 9.3.8 Apache Dockerfile, 2026-10-21.
+# Upstream: espocrm/espocrm-docker@a6d862f43d825289dd219088d5187931ca7493d6
 # Changes: patched PHP base, pinned PECL versions, source metadata, and a
 # commit-pinned upstream stage instead of locally copied startup scripts.
 
 ARG PHP_BASE_IMAGE=php:8.4.27-apache-trixie
 
 FROM scratch AS upstream
-ADD https://github.com/espocrm/espocrm-docker.git#d7f12c42946110f6aae21e8333f018da4e829220 /upstream/
+ADD https://github.com/espocrm/espocrm-docker.git#a6d862f43d825289dd219088d5187931ca7493d6 /upstream/
 
 FROM ${PHP_BASE_IMAGE}
 
 LABEL org.opencontainers.image.source="https://github.com/martin-pfister/espocrm-php-patched" \
-      org.opencontainers.image.description="Unofficial EspoCRM 9.3.10 rebuild with patched PHP." \
+      org.opencontainers.image.description="Unofficial EspoCRM 9.3.8 rebuild with patched PHP; not an EspoCRM application upgrade." \
       org.opencontainers.image.licenses="AGPL-3.0-only"
 
 # Persistent dependencies, as in the historical EspoCRM recipe.
@@ -70,7 +70,7 @@ RUN set -eux; \
     apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false; \
     rm -rf /var/lib/apt/lists/*
 
-# Preserve the 9.3.10 image's PHP configuration.
+# Preserve the 9.3.8 image's PHP configuration.
 RUN { \
     echo 'expose_php = Off'; \
     echo 'error_reporting = E_ALL & ~E_NOTICE & ~E_DEPRECATED'; \
@@ -88,15 +88,15 @@ RUN { \
 RUN a2enmod rewrite
 
 # Application version and checksum are fixed, not build arguments.
-ENV ESPOCRM_VERSION=9.3.10
-ENV ESPOCRM_SHA256=eea5b47ecb7e12011f862f449c3b196b6dd40ad8b80c0e6c610b7b6bb6f31b5d
+ENV ESPOCRM_VERSION=9.3.8
+ENV ESPOCRM_SHA256=e02583050c5f5a7e98cd12f9431870fc606581a62c10c5e4ef6dc091e882c18d
 
 LABEL org.opencontainers.image.version="${ESPOCRM_VERSION}-php${PHP_VERSION}"
 
 WORKDIR /var/www/html
 
 RUN set -eux; \
-    curl -fSL https://www.espocrm.com/downloads/EspoCRM-9.3.10.zip -o EspoCRM.zip; \
+    curl -fSL https://www.espocrm.com/downloads/EspoCRM-9.3.8.zip -o EspoCRM.zip; \
     echo "${ESPOCRM_SHA256} *EspoCRM.zip" | sha256sum -c -; \
     unzip -q EspoCRM.zip -d /usr/src; \
     mv "/usr/src/EspoCRM-${ESPOCRM_VERSION}" /usr/src/espocrm; \
