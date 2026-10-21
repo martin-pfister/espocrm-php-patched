@@ -7,7 +7,7 @@ https://github.com/espocrm/espocrm-docker/blob/a6d862f43d825289dd219088d5187931c
 
 Modifications made on October 21, 2026:
 
-- Select PHP 8.4.27 Apache/Trixie instead of the moving PHP 8.4 base tag.
+- Select PHP 8.4.26 Apache/Trixie instead of the moving PHP 8.4 base tag.
 - Pin the ev and Redis PECL extension versions.
 - Fetch the complete generated startup scripts from a commit-pinned upstream
   stage rather than a local copy of the build context.

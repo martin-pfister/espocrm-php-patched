@@ -73,7 +73,7 @@ class ResolveBaseTest(unittest.TestCase):
             )
             return subprocess.run(
                 ["bash", str(ROOT / "scripts/resolve-base.sh"),
-                 "php:8.4.27-apache-trixie"],
+                 "php:8.4.26-apache-trixie"],
                 env=env, capture_output=True, text=True,
             )
 
@@ -86,7 +86,7 @@ class ResolveBaseTest(unittest.TestCase):
              "digest": digest},
         ]})
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.strip(), f"php:8.4.27-apache-trixie@{digest}")
+        self.assertEqual(result.stdout.strip(), f"php:8.4.26-apache-trixie@{digest}")
 
     def test_rejects_placeholder(self):
         result = self.resolve({"manifests": []})
@@ -120,7 +120,7 @@ class SmokeTestHarnessTest(unittest.TestCase):
     """Check orchestration with a fake Docker CLI; not actual runtime tests."""
 
     def run_smoke_test(self, platform="linux/amd64", cli_status=0,
-                       apache_response="8.4.27:apache2handler"):
+                       apache_response="8.4.26:apache2handler"):
         with tempfile.TemporaryDirectory() as directory:
             docker = Path(directory) / "docker"
             log = Path(directory) / "commands.jsonl"
@@ -151,7 +151,7 @@ elif args[0] == "exec":
                 TEST_APACHE_RESPONSE=apache_response,
             )
             result = subprocess.run(
-                ["bash", str(ROOT / "scripts/smoke-test.sh"), "test:image", "8.4.27"],
+                ["bash", str(ROOT / "scripts/smoke-test.sh"), "test:image", "8.4.26"],
                 env=env, capture_output=True, text=True, timeout=10,
             )
             commands = [json.loads(line) for line in log.read_text().splitlines()]
