@@ -56,13 +56,29 @@ class BuildInputsTest(unittest.TestCase):
 
 
 class ResolveBaseTest(unittest.TestCase):
-    def resolve(self, manifest, docker_status=0):
+    def resolve(self, manifest, docker_status=0, max_attempts=1, manifest_sequence=None):
         with tempfile.TemporaryDirectory() as directory:
             docker = Path(directory) / "docker"
+            counter = Path(directory) / "counter"
             docker.write_text(
-                '#!/usr/bin/env bash\n'
-                'printf "%s\\n" "$TEST_MANIFEST"\n'
-                'exit "$TEST_DOCKER_STATUS"\n'
+                '#!/usr/bin/env python3\n'
+                'import json\n'
+                'import os\n'
+                'import pathlib\n'
+                'import sys\n'
+                'status = int(os.environ["TEST_DOCKER_STATUS"])\n'
+                'if status:\n'
+                '    sys.exit(status)\n'
+                'sequence = os.environ.get("TEST_MANIFEST_SEQUENCE")\n'
+                'if sequence:\n'
+                '    manifests = json.loads(sequence)\n'
+                '    counter = pathlib.Path(os.environ["TEST_DOCKER_COUNTER"])\n'
+                '    index = int(counter.read_text()) if counter.exists() else 0\n'
+                '    counter.write_text(str(index + 1))\n'
+                '    manifest = manifests[index if index < len(manifests) else -1]\n'
+                '    print(json.dumps(manifest))\n'
+                'else:\n'
+                '    print(os.environ["TEST_MANIFEST"])\n'
             )
             docker.chmod(0o755)
             env = dict(os.environ)
@@ -70,10 +86,15 @@ class ResolveBaseTest(unittest.TestCase):
                 PATH=directory + os.pathsep + env["PATH"],
                 TEST_MANIFEST=json.dumps(manifest),
                 TEST_DOCKER_STATUS=str(docker_status),
+                TEST_DOCKER_COUNTER=str(counter),
+                RESOLVE_BASE_MAX_ATTEMPTS=str(max_attempts),
+                RESOLVE_BASE_RETRY_DELAY_SECONDS="0",
             )
+            if manifest_sequence is not None:
+                env["TEST_MANIFEST_SEQUENCE"] = json.dumps(manifest_sequence)
             return subprocess.run(
                 ["bash", str(ROOT / "scripts/resolve-base.sh"),
-                 "php:8.4.26-apache-trixie"],
+                 "php:8.4.27-apache-trixie"],
                 env=env, capture_output=True, text=True,
             )
 
@@ -86,7 +107,7 @@ class ResolveBaseTest(unittest.TestCase):
              "digest": digest},
         ]})
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.strip(), f"php:8.4.26-apache-trixie@{digest}")
+        self.assertEqual(result.stdout.strip(), f"php:8.4.27-apache-trixie@{digest}")
 
     def test_rejects_placeholder(self):
         result = self.resolve({"manifests": []})
@@ -115,12 +136,28 @@ class ResolveBaseTest(unittest.TestCase):
         self.assertEqual(result.returncode, 42)
         self.assertEqual(result.stdout, "")
 
+    def test_retries_placeholder_until_manifest_is_published(self):
+        digest = "sha256:" + "a" * 64
+        result = self.resolve(
+            {},
+            max_attempts=2,
+            manifest_sequence=[
+                {"manifests": []},
+                {"manifests": [
+                    {"platform": {"os": "linux", "architecture": "amd64"},
+                     "digest": digest},
+                ]},
+            ],
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), f"php:8.4.27-apache-trixie@{digest}")
+
 
 class SmokeTestHarnessTest(unittest.TestCase):
     """Check orchestration with a fake Docker CLI; not actual runtime tests."""
 
     def run_smoke_test(self, platform="linux/amd64", cli_status=0,
-                       apache_response="8.4.26:apache2handler"):
+                       apache_response="8.4.27:apache2handler"):
         with tempfile.TemporaryDirectory() as directory:
             docker = Path(directory) / "docker"
             log = Path(directory) / "commands.jsonl"
@@ -151,7 +188,7 @@ elif args[0] == "exec":
                 TEST_APACHE_RESPONSE=apache_response,
             )
             result = subprocess.run(
-                ["bash", str(ROOT / "scripts/smoke-test.sh"), "test:image", "8.4.26"],
+                ["bash", str(ROOT / "scripts/smoke-test.sh"), "test:image", "8.4.27"],
                 env=env, capture_output=True, text=True, timeout=10,
             )
             commands = [json.loads(line) for line in log.read_text().splitlines()]

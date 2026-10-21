@@ -4,7 +4,7 @@
 # Changes: patched PHP base, pinned PECL versions, source metadata, and a
 # commit-pinned upstream stage instead of locally copied startup scripts.
 
-ARG PHP_BASE_IMAGE=php:8.4.26-apache-trixie
+ARG PHP_BASE_IMAGE=php:8.4.27-apache-trixie
 
 FROM scratch AS upstream
 ADD https://github.com/espocrm/espocrm-docker.git#a6d862f43d825289dd219088d5187931ca7493d6 /upstream/

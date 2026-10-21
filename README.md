@@ -1,11 +1,11 @@
 # EspoCRM with patched PHP
 
 Unofficial rebuild of the official EspoCRM Docker image, keeping **EspoCRM
-9.3.8** while updating its PHP runtime to **8.4.26**. Not affiliated with or
+9.3.8** while updating its PHP runtime to **8.4.27**. Not affiliated with or
 endorsed by EspoCRM.
 
 ```text
-ghcr.io/martin-pfister/espocrm-php-patched:9.3.8-php8.4.26
+ghcr.io/martin-pfister/espocrm-php-patched:9.3.8-php8.4.27
 ```
 
 Only **linux/amd64** is built and tested. The image is published after a
@@ -24,7 +24,7 @@ that PHP runtime.
 
 On October 21, 2026, PHP released fixes for critical vulnerabilities
 [CVE-2026-109618 and CVE-2026-109619](https://www.php.net/archive/2026.php#2026-10-21-5).
-PHP 8.4.26 contains the fixes for the 8.4 branch. Both PHP CLI and Apache's
+PHP 8.4.27 contains the fixes for the 8.4 branch. Both PHP CLI and Apache's
 PHP module must be updated; replacing only the CLI binary is insufficient.
 
 ## Build approach
@@ -35,7 +35,7 @@ into the old image and **not** an independent build of the EspoCRM application.
 | Input | Selection |
 | --- | --- |
 | Upstream Docker recipe and startup scripts | [`espocrm/espocrm-docker@a6d862f43d825289dd219088d5187931ca7493d6`](https://github.com/espocrm/espocrm-docker/tree/a6d862f43d825289dd219088d5187931ca7493d6/latest/apache) (9.3.8) |
-| PHP base | `php:8.4.26-apache-trixie` |
+| PHP base | `php:8.4.27-apache-trixie` |
 | EspoCRM archive | [`EspoCRM-9.3.8.zip`](https://www.espocrm.com/downloads/EspoCRM-9.3.8.zip) |
 | Archive SHA-256 | `e02583050c5f5a7e98cd12f9431870fc606581a62c10c5e4ef6dc091e882c18d` |
 | PECL extensions | ev **1.2.3**, Redis **6.3.0** |
@@ -103,8 +103,8 @@ update with the volume-layout changes used by newer EspoCRM releases.
 
 Each publication has two tags:
 
-- `9.3.8-php8.4.26`: a convenience tag, updated by subsequent successful builds.
-- `9.3.8-php8.4.26-build.<run-id>.<attempt>`: a build-specific tag.
+- `9.3.8-php8.4.27`: a convenience tag, updated by subsequent successful builds.
+- `9.3.8-php8.4.27-build.<run-id>.<attempt>`: a build-specific tag.
 
 The workflow loads the image locally, tests it, then pushes **that same image
 without rebuilding**. It checks the architecture, PHP CLI version, required
@@ -125,11 +125,11 @@ root. A non-amd64 host needs amd64 emulation configured to execute build
 steps and smoke tests.
 
 ```sh
-PHP_BASE_IMAGE=$(bash scripts/resolve-base.sh php:8.4.26-apache-trixie)
+PHP_BASE_IMAGE=$(bash scripts/resolve-base.sh php:8.4.27-apache-trixie)
 docker buildx build --platform linux/amd64 --pull --load \
   --build-arg "PHP_BASE_IMAGE=$PHP_BASE_IMAGE" \
   --tag espocrm-php-patched:test .
-bash scripts/smoke-test.sh espocrm-php-patched:test 8.4.26
+bash scripts/smoke-test.sh espocrm-php-patched:test 8.4.27
 ```
 
 If resolution reports a release placeholder, wait for the official PHP
@@ -169,11 +169,11 @@ mounts, environment, labels or entrypoints:
 ```yaml
 services:
   espocrm:
-    image: ghcr.io/martin-pfister/espocrm-php-patched:9.3.8-php8.4.26
+    image: ghcr.io/martin-pfister/espocrm-php-patched:9.3.8-php8.4.27
   espocrm-daemon:
-    image: ghcr.io/martin-pfister/espocrm-php-patched:9.3.8-php8.4.26
+    image: ghcr.io/martin-pfister/espocrm-php-patched:9.3.8-php8.4.27
   espocrm-websocket:
-    image: ghcr.io/martin-pfister/espocrm-php-patched:9.3.8-php8.4.26
+    image: ghcr.io/martin-pfister/espocrm-php-patched:9.3.8-php8.4.27
 ```
 
 This snippet shows **only the image changes**, not a complete Compose file.
@@ -202,7 +202,7 @@ docker compose exec -T espocrm-websocket php -v
 docker compose logs --tail=100 espocrm espocrm-daemon espocrm-websocket
 ```
 
-Confirm PHP 8.4.26 in all three services, EspoCRM 9.3.8, successful LDAP login,
+Confirm PHP 8.4.27 in all three services, EspoCRM 9.3.8, successful LDAP login,
 uploads, scheduled jobs and websocket functionality. The CI HTTP smoke test
 checks Apache's module as well as CLI; `php -v` alone checks only CLI.
 
@@ -242,7 +242,7 @@ Sources and build instructions are available here and at:
 - [EspoCRM 9.3.8 source](https://github.com/espocrm/espocrm/tree/9.3.8)
 - [Original EspoCRM 9.3.8 distribution archive](https://www.espocrm.com/downloads/EspoCRM-9.3.8.zip)
 - [Docker Official PHP image sources](https://github.com/docker-library/php)
-- [PHP 8.4.26 source](https://www.php.net/distributions/php-8.4.26.tar.xz)
+- [PHP 8.4.27 source](https://www.php.net/distributions/php-8.4.27.tar.xz)
 
 No production application files, credentials or private customizations are
 included. Images are provided without warranty.
