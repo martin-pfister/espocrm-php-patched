@@ -3,7 +3,7 @@
 The Dockerfile is adapted from the official EspoCRM Docker image's Apache
 build recipe at:
 
-https://github.com/espocrm/espocrm-docker/blob/a6d862f43d825289dd219088d5187931ca7493d6/latest/apache/Dockerfile
+https://github.com/espocrm/espocrm-docker/blob/d7f12c42946110f6aae21e8333f018da4e829220/latest/apache/Dockerfile
 
 Modifications made on October 21, 2026:
 
@@ -15,7 +15,7 @@ Modifications made on October 21, 2026:
 - Include the upstream Dockerfile and license for provenance.
 - Add build, smoke-test, publishing and documentation files.
 
-The EspoCRM 9.3.8 application archive, its checksum and upstream generated
+The EspoCRM 9.3.10 application archive, its checksum and upstream generated
 startup scripts are unchanged. EspoCRM is copyright EspoCRM, Inc. and its
 contributors. Preserve the application's copyright and legal notices,
 including its additional legal-notice requirements.

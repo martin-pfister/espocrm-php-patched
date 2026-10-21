@@ -4,26 +4,38 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import tempfile
 import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-UPSTREAM_COMMIT = "a6d862f43d825289dd219088d5187931ca7493d6"
-ESPOCRM_SHA256 = "e02583050c5f5a7e98cd12f9431870fc606581a62c10c5e4ef6dc091e882c18d"
+UPSTREAM_COMMIT = "d7f12c42946110f6aae21e8333f018da4e829220"
+ESPOCRM_SHA256 = "eea5b47ecb7e12011f862f449c3b196b6dd40ad8b80c0e6c610b7b6bb6f31b5d"
 
 
 class BuildInputsTest(unittest.TestCase):
     def test_application_inputs_are_fixed(self):
         dockerfile = (ROOT / "Dockerfile").read_text()
         self.assertIn(f"espocrm-docker.git#{UPSTREAM_COMMIT}", dockerfile)
-        self.assertIn("ENV ESPOCRM_VERSION=9.3.8\n", dockerfile)
+        self.assertIn("ENV ESPOCRM_VERSION=9.3.10\n", dockerfile)
         self.assertIn(f"ENV ESPOCRM_SHA256={ESPOCRM_SHA256}\n", dockerfile)
-        self.assertIn("https://www.espocrm.com/downloads/EspoCRM-9.3.8.zip", dockerfile)
+        self.assertIn("https://www.espocrm.com/downloads/EspoCRM-9.3.10.zip", dockerfile)
         self.assertIn('sha256sum -c -', dockerfile)
         self.assertNotIn("ARG ESPOCRM_VERSION", dockerfile)
         self.assertNotIn("ARG ESPOCRM_SHA256", dockerfile)
+
+    def test_documented_image_tag_matches_build_inputs(self):
+        dockerfile = (ROOT / "Dockerfile").read_text()
+        espo_version = re.search(r"^ENV ESPOCRM_VERSION=(\S+)$", dockerfile, re.M).group(1)
+        php_version = re.search(
+            r"^ARG PHP_BASE_IMAGE=php:([0-9.]+)-apache-trixie$", dockerfile, re.M,
+        ).group(1)
+        self.assertIn(
+            f"ghcr.io/martin-pfister/espocrm-php-patched:{espo_version}-php{php_version}",
+            (ROOT / "README.md").read_text(),
+        )
 
     def test_generated_scripts_and_license_come_from_same_commit(self):
         dockerfile = (ROOT / "Dockerfile").read_text()
