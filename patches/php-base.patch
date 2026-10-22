@@ -1,0 +1,6 @@
+diff --git a/latest/apache/Dockerfile b/latest/apache/Dockerfile
+--- a/latest/apache/Dockerfile
++++ b/latest/apache/Dockerfile
+@@ -7 +7 @@
+-FROM php:8.4-apache-trixie
++FROM php:8.4.27-apache-trixie

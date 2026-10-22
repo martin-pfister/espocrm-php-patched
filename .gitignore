@@ -1,7 +1,8 @@
+/upstream/
 .env
 .env.*
-!.env.example
 __pycache__/
 *.pyc
+*.log
 .DS_Store
 *.dockerbuild
