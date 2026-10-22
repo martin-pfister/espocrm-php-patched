@@ -1,5 +1,13 @@
 # EspoCRM with patched PHP
 
+> [!WARNING]
+> ## Switch to the official EspoCRM 9.3.10 image
+>
+> EspoCRM published a refreshed **9.3.10** container on **2026-10-22** with a fixed PHP version.
+> **Use [`espocrm/espocrm:9.3.10`](https://hub.docker.com/layers/espocrm/espocrm/9.3.10) instead of this unofficial image.**
+>
+> Make sure to pull the refreshed image rather than reusing a cached 9.3.10 image.
+
 Unofficial **EspoCRM 9.3.8 / PHP 8.4.27** image for **linux/amd64**:
 
 ```text
