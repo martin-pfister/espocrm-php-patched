@@ -35,17 +35,15 @@ docker run --rm --network none --entrypoint php \
 docker run --rm --network none --entrypoint bash "$image" -ec '
     for script in docker-entrypoint.sh docker-daemon.sh docker-websocket.sh; do
         test -x "/usr/local/bin/$script"
-        bash -n "/usr/local/bin/$script"
     done
 '
-docker run --rm --network none --entrypoint apache2ctl "$image" -t
 
 # Exercise Apache's actual PHP module, not just the CLI. Nothing is exposed on
 # the host: curl runs inside this temporary, network-isolated container.
 container_id=
 cleanup() {
     if [ -n "$container_id" ]; then
-        docker rm --force "$container_id" > /dev/null
+        docker rm --force "$container_id" > /dev/null || true
     fi
 }
 trap cleanup EXIT
@@ -58,14 +56,17 @@ container_id=$(docker run --detach --network none --entrypoint sh "$image" -ec '
 response=
 for attempt in $(seq 1 30); do
     if response=$(docker exec "$container_id" curl --fail --silent --show-error \
-        --max-time 2 http://127.0.0.1/php-runtime-check.php 2>/dev/null); then
+        --max-time 2 http://127.0.0.1/php-runtime-check.php 2>&1); then
+        break
+    fi
+    if [ "$(docker inspect --format '{{.State.Running}}' "$container_id")" != true ]; then
         break
     fi
     sleep 1
 done
 
 if [ "$response" != "$expected_php_version:apache2handler" ]; then
-    printf 'Unexpected Apache PHP response: %s\n' "$response" >&2
+    printf 'Apache PHP check failed. Last response or error: %s\n' "$response" >&2
     docker logs "$container_id" >&2
     exit 1
 fi

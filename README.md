@@ -18,9 +18,10 @@ The [workflow](.github/workflows/image.yml) checks out
 ```
 
 Everything else in the upstream Dockerfile and scripts stays unchanged,
-including unpinned Debian/PECL dependencies. CI pins the PHP base by digest,
-tests CLI, extensions and Apache, then publishes the tested image to GHCR.
-The run summary records the upstream commit, patch and image digests.
+including unpinned Debian/PECL dependencies. The PHP base uses a patch-version
+tag, not a digest, so base-image rebuilds can change subsequent builds.
+CI tests CLI, extensions and Apache, then publishes that same image to GHCR.
+The run summary records the upstream commit, PHP base tag and published image digest.
 
 Push to `main` or run the workflow manually on `main` to publish. Pull requests
 only build and test. Make the GHCR package public after its first publication.
@@ -35,11 +36,14 @@ only build and test. Make the GHCR package public after its first publication.
 
 This updates PHP, not EspoCRM application code. Upstream startup/upgrade
 behavior is unchanged.
+The smoke test does not exercise installation, upgrades, or database access.
 
 ## Update
 
 - PHP version: edit `patches/php-base.patch`.
 - EspoCRM tag: edit `ESPOCRM_VERSION` in the workflow; test application upgrades separately.
+- Keep the version examples above current. Run `bash -n scripts/smoke-test.sh`
+  before pushing; CI checks the patch against upstream and smoke-tests the image.
 
 ## License
 

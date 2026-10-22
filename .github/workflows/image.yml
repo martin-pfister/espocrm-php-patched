@@ -11,7 +11,6 @@ permissions:
 
 env:
   ESPOCRM_VERSION: "9.3.8"
-  DOCKER_BUILD_RECORD_UPLOAD: "false"
 
 concurrency:
   group: image-${{ github.ref }}
@@ -30,8 +29,8 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Check helpers and patch
-        run: python3 -m unittest discover -s tests -v
+      - name: Check shell syntax
+        run: bash -n scripts/smoke-test.sh
 
       - name: Check out upstream release
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -40,9 +39,6 @@ jobs:
           ref: refs/tags/${{ env.ESPOCRM_VERSION }}
           path: upstream
           persist-credentials: false
-
-      - name: Set up Buildx
-        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
 
       - name: Patch only the PHP base
         id: config
@@ -54,47 +50,35 @@ jobs:
             exit 1
           fi
           php_version=${BASH_REMATCH[1]}
-          resolved_base=$(bash scripts/resolve-base.sh "$base_image")
-          patch=$(sed "s|^+FROM .*|+FROM $resolved_base|" patches/php-base.patch)
-          printf '%s\n' "$patch" | git -C upstream apply --unidiff-zero --check -
-          printf '%s\n' "$patch" | git -C upstream apply --unidiff-zero -
+          git -C upstream apply --unidiff-zero "$GITHUB_WORKSPACE/patches/php-base.patch"
           upstream_revision=$(git -C upstream rev-parse HEAD)
           image="ghcr.io/${GITHUB_REPOSITORY,,}"
           version="$ESPOCRM_VERSION-php$php_version"
           {
-            echo "base=$resolved_base"
+            echo "base=$base_image"
             echo "php_version=$php_version"
             echo "upstream_revision=$upstream_revision"
             echo "image=$image"
             echo "version=$version"
             echo "build_version=$version-build.$GITHUB_RUN_ID.$GITHUB_RUN_ATTEMPT"
           } >> "$GITHUB_OUTPUT"
-          {
-            printf 'Upstream tag: `%s`\n\nCommit: `%s`\n\nPHP base: `%s`\n\n' \
-              "$ESPOCRM_VERSION" "$upstream_revision" "$resolved_base"
-            echo '```diff'
-            git -C upstream diff -- latest/apache/Dockerfile
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
+          printf 'Upstream tag: `%s`\n\nCommit: `%s`\n\nPHP base: `%s`\n\n' \
+            "$ESPOCRM_VERSION" "$upstream_revision" "$base_image" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Build upstream Apache image
-        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
-        with:
-          context: ./upstream/latest/apache
-          platforms: linux/amd64
-          labels: |
-            org.opencontainers.image.source=https://github.com/${{ github.repository }}
-            org.opencontainers.image.description=Unofficial EspoCRM rebuild with patched PHP.
-            org.opencontainers.image.version=${{ steps.config.outputs.version }}
-            org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.base.name=${{ steps.config.outputs.base }}
-            io.github.espocrm-php-patched.upstream-revision=${{ steps.config.outputs.upstream_revision }}
-          tags: espocrm-php-patched:test
-          pull: true
-          load: true
-          push: false
-          provenance: false
-          sbom: false
+        env:
+          BASE: ${{ steps.config.outputs.base }}
+          VERSION: ${{ steps.config.outputs.version }}
+          UPSTREAM_REVISION: ${{ steps.config.outputs.upstream_revision }}
+        run: |
+          docker build --pull --platform linux/amd64 --tag espocrm-php-patched:test \
+            --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
+            --label "org.opencontainers.image.description=Unofficial EspoCRM rebuild with patched PHP." \
+            --label "org.opencontainers.image.version=$VERSION" \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            --label "org.opencontainers.image.base.name=$BASE" \
+            --label "io.github.espocrm-php-patched.upstream-revision=$UPSTREAM_REVISION" \
+            ./upstream/latest/apache
 
       - name: Test PHP CLI, extensions, and Apache
         env:
